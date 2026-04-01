@@ -306,10 +306,10 @@
 </header>
 
 <nav class="tab-bar" aria-label="Menu sections">
-  <button class="tab-btn active" onclick="switchTab('week1',this)">Week 1</button>
-  <button class="tab-btn" onclick="switchTab('week2',this)">Week 2</button>
-  <button class="tab-btn" onclick="switchTab('week3',this)">Week 3</button>
-  <button class="tab-btn" onclick="switchTab('molloway',this)">Un-subsidised Menu</button>
+  <button class="tab-btn active" data-tab="week1" onclick="switchTab('week1',this)">Week 1</button>
+  <button class="tab-btn" data-tab="week2" onclick="switchTab('week2',this)">Week 2</button>
+  <button class="tab-btn" data-tab="week3" onclick="switchTab('week3',this)">Week 3</button>
+  <button class="tab-btn" data-tab="molloway" onclick="switchTab('molloway',this)">Un-subsidised Menu</button>
 </nav>
 
 <div class="day-bar" aria-label="Select day">
@@ -427,18 +427,67 @@
 </footer>
 
 <script>
-  let currentTab = 'week1';
-  let currentDay = 'mon';
+  // ── Week cycle detection ─────────────────────────────────
+  // Anchor: week of Monday 30 March 2026 = Week 2
+  const ANCHOR_DATE  = new Date('2026-03-30T00:00:00');
+  const ANCHOR_WEEK  = 2; // 1-indexed
 
+  function getMonday(d) {
+    const date = new Date(d);
+    const day  = date.getDay(); // 0=Sun
+    const diff = day === 0 ? -6 : 1 - day;
+    date.setDate(date.getDate() + diff);
+    date.setHours(0,0,0,0);
+    return date;
+  }
+
+  function getCurrentCycleWeek() {
+    const todayMonday  = getMonday(new Date());
+    const anchorMonday = getMonday(ANCHOR_DATE);
+    const weeksDiff    = Math.round((todayMonday - anchorMonday) / (7 * 24 * 60 * 60 * 1000));
+    // Cycle: 0-indexed offset from anchor, mod 3, then map back to 1-based week
+    const offset = ((weeksDiff % 3) + 3) % 3; // always positive
+    return ((ANCHOR_WEEK - 1 + offset) % 3) + 1;
+  }
+
+  // ── State ────────────────────────────────────────────────
+  const dayMap   = ['sun','mon','tue','wed','thu','fri','sat'];
+  const weekdays = ['mon','tue','wed','thu','fri'];
+  const todayKey = dayMap[new Date().getDay()];
+  const isWeekday = weekdays.includes(todayKey);
+
+  // Start on today's day if a weekday, otherwise Monday
+  let currentDay  = isWeekday ? todayKey : 'mon';
+  // Start on the current cycle week tab
+  let currentTab  = 'week' + getCurrentCycleWeek();
+
+  // ── Initialise on load ───────────────────────────────────
+  window.addEventListener('DOMContentLoaded', () => {
+    // Activate correct week tab
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === currentTab);
+    });
+    document.querySelectorAll('.menu-section').forEach(s => {
+      s.classList.toggle('active', s.id === 'sec-' + currentTab);
+    });
+
+    // Activate correct day button
+    const dayIdx = weekdays.indexOf(currentDay);
+    document.querySelectorAll('.day-btn').forEach((btn, i) => {
+      btn.classList.toggle('active', i === dayIdx);
+    });
+
+    showDay();
+  });
+
+  // ── Tab switching (preserves current day) ────────────────
   function switchTab(tab, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     document.querySelectorAll('.menu-section').forEach(s => s.classList.remove('active'));
     document.getElementById('sec-' + tab).classList.add('active');
     currentTab = tab;
-    document.querySelectorAll('.day-btn').forEach((b,i) => b.classList.toggle('active', i===0));
-    currentDay = 'mon';
-    showDay();
+    showDay(); // keep currentDay as-is
   }
 
   function switchDay(day, btn) {
@@ -453,17 +502,6 @@
     section.querySelectorAll('.day-content').forEach(d => d.classList.remove('active'));
     const target = document.getElementById(currentTab + '-' + currentDay);
     if (target) target.classList.add('active');
-  }
-
-  const dayMap = ['sun','mon','tue','wed','thu','fri','sat'];
-  const todayKey = dayMap[new Date().getDay()];
-  const weekdays = ['mon','tue','wed','thu','fri'];
-  const idx = weekdays.indexOf(todayKey);
-  if (idx >= 0) {
-    document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.day-btn')[idx].classList.add('active');
-    currentDay = todayKey;
-    showDay();
   }
 </script>
 
